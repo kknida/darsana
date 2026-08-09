@@ -28,8 +28,8 @@ class SapImportLatest extends Command
      */
     public function handle(SapImportService $importService)
     {
-        $exportDir = config('sap.export_dir');
-        $archiveDir = $exportDir . '/archive';
+        $exportDir = storage_path('app/sap/incoming');
+        $archiveDir = storage_path('app/sap/archive');
         
         $newFile = $this->findNewestExportFile($exportDir);
         

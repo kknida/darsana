@@ -69,7 +69,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('sap-settings', [\App\Http\Controllers\Admin\SapSettingsController::class, 'index'])->name('sap-settings.index');
         Route::post('sap-settings', [\App\Http\Controllers\Admin\SapSettingsController::class, 'update'])->name('sap-settings.update');
-        Route::get('sap-settings/browse-folder', [\App\Http\Controllers\Admin\SapSettingsController::class, 'browseFolder'])->name('sap-settings.browse');
+
 
     });
 
@@ -80,8 +80,5 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/profile', 'destroy')->name('profile.destroy');
     });
 });
-
-// Rute API Khusus untuk Jembatan Sinkronisasi Bot Lokal
-Route::get('/api/sap-config', [\App\Http\Controllers\Admin\SapSettingsController::class, 'getConfigApi'])->name('api.sap-config');
 
 require __DIR__.'/auth.php';

@@ -1,0 +1,9 @@
+bot.env
+runtime_config.ini
+bot.lock
+logs/
+config_sap.ini
+config_sap.ini.bak
+vbs_out.log
+vbs_err.log
+sample_export.csv
