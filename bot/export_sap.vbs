@@ -5,9 +5,17 @@
 '
 ' >>> PENTING <<<
 ' Pengaturan (user, password, folder, dll) TIDAK lagi ditulis di file ini.
-' Semua nilai dibaca dari file : config_sap.ini
-' Letakkan config_sap.ini di FOLDER YANG SAMA dengan script ini.
-' File itu bisa diubah lewat halaman Settings di dashboard DARSANA.
+' Semua nilai dibaca dari file : runtime_config.ini
+' Letakkan runtime_config.ini di FOLDER YANG SAMA dengan script ini.
+' File itu otomatis dibuat oleh runner.
+'
+' Daftar Exit Code:
+' 0 = sukses
+' 1 = export gagal atau CSV kosong
+' 2 = logout gagal, tapi export sukses
+' 3 = konfigurasi tidak valid termasuk exportFolder kosong
+' 4 = kredensial SAP kosong
+' 5 = folder export tidak dapat dibuat
 '
 ' Jalankan: cscript //nologo export_sap.vbs
 '================================================================
@@ -16,15 +24,14 @@
 Dim fso, scriptFolder, configPath
 Set fso = CreateObject("Scripting.FileSystemObject")
 scriptFolder = fso.GetParentFolderName(WScript.ScriptFullName)
-configPath   = scriptFolder & "\config_sap.ini"
+configPath   = scriptFolder & "\runtime_config.ini"
 
 If Not fso.FileExists(configPath) Then
     WScript.Echo "GAGAL 0: file pengaturan tidak ditemukan: " & configPath
-    WScript.Echo "         Buat config_sap.ini di folder yang sama, atau simpan lewat halaman Settings dashboard."
-    WScript.Quit 4
+    WScript.Quit 3
 End If
 
-'---------- Baca semua nilai dari config_sap.ini ----------
+'---------- Baca semua nilai dari runtime_config.ini ----------
 Dim cfg
 Set cfg = BacaConfig(configPath)
 
@@ -32,7 +39,7 @@ Dim exportFolder, filePrefix, reportTx, fmArea
 Dim sapSystem, sapClient, sapUser, sapPass, sapLang, logoutAfter
 Dim ficLow, ficHigh
 
-exportFolder = Ambil(cfg, "exportFolder", "D:\Sap_export")
+exportFolder = Ambil(cfg, "exportFolder", "")
 filePrefix   = Ambil(cfg, "filePrefix", "realisasi_")
 reportTx     = Ambil(cfg, "reportTx", "ZFM001")
 fmArea       = Ambil(cfg, "fmArea", "1000")
@@ -41,19 +48,44 @@ sapClient    = Ambil(cfg, "sapClient", "")
 sapUser      = Ambil(cfg, "sapUser", "")
 sapPass      = Ambil(cfg, "sapPass", "")
 sapLang      = Ambil(cfg, "sapLang", "EN")
-logoutAfter  = (LCase(Ambil(cfg, "logoutAfter", "True")) = "true")
+logoutAfter  = (Trim(LCase(logoutAfter)) = "1" Or Trim(LCase(logoutAfter)) = "true" Or Trim(LCase(logoutAfter)) = "yes")
 ficLow       = Ambil(cfg, "fundCenterLow", "A022020000")
 ficHigh      = Ambil(cfg, "fundCenterHigh", "A022020005")
 
 '---------- Validasi pengaturan wajib ----------
 If sapSystem = "" Or sapClient = "" Or sapUser = "" Or sapPass = "" Then
-    WScript.Echo "GAGAL 0: pengaturan belum lengkap di config_sap.ini."
+    WScript.Echo "GAGAL 0: pengaturan belum lengkap di runtime_config.ini."
     WScript.Echo "         Wajib diisi: sapSystem, sapClient, sapUser, sapPass."
     WScript.Quit 4
 End If
 
+If exportFolder = "" Then
+    WScript.Echo "ERROR_CONFIG=exportFolder kosong. Isi lewat halaman Pengaturan Bot SAP."
+    WScript.Quit 3
+End If
+
+'---------- Buat folder tujuan (rekursif) ----------
+Function CreateFolderRecursive(fsoObj, folderPath)
+    If Not fsoObj.FolderExists(folderPath) Then
+        Dim parentPath
+        parentPath = fsoObj.GetParentFolderName(folderPath)
+        If parentPath <> "" And Not fsoObj.FolderExists(parentPath) Then
+            CreateFolderRecursive fsoObj, parentPath
+        End If
+        On Error Resume Next
+        fsoObj.CreateFolder folderPath
+        If Err.Number <> 0 Then
+            WScript.Echo "ERROR_FOLDER=" & folderPath & " tidak dapat dibuat: " & Err.Description
+            WScript.Quit 5
+        End If
+        On Error GoTo 0
+    End If
+End Function
+
+CreateFolderRecursive fso, exportFolder
+
 '---------- Buat nama file otomatis bertanggal ----------
-' Contoh hasil: D:\Sap_export\realisasi_20260731_1003.csv
+' Contoh hasil: realisasi_20260731_1003.csv
 Dim d, stamp, fullPath
 d = Now
 stamp = Year(d) & Right("0" & Month(d),2) & Right("0" & Day(d),2) _
@@ -178,6 +210,8 @@ If Not exportBerhasil Then
     WScript.Quit 1
 End If
 
+WScript.Echo "EXPORTED_FILE=" & fullPath
+
 '---------- Logout otomatis (HANYA jika BOT yang login & export sukses) ----------
 If botLoggedIn And logoutAfter Then
     DoLogout session
@@ -240,13 +274,12 @@ Sub DoLogout(sess)
     End If
     
     WScript.Sleep 1500
-    Err.Clear
-    
-    ' Bersihkan object dari memory
     Set sess = Nothing
     Set connection = Nothing
     Set application = Nothing
     Set SapGuiAuto = Nothing
+    
+    If Err.Number <> 0 Then WScript.Quit 2
 End Sub
 
 Function VerifyExport(path, fsoObj)

@@ -4,26 +4,28 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Services\SapConfigService;
-use Illuminate\Support\Facades\Process;
+use App\Models\SapBotSetting;
 
 class SapSettingsController extends Controller
 {
-    public function index(SapConfigService $sapConfigService)
+    public function index()
     {
         $settings = [
-            'sapUser' => '',
-            'exportFolder' => '',
+            'sapSystem' => SapBotSetting::get('sapSystem', 'PRD'),
+            'sapClient' => SapBotSetting::get('sapClient', '100'),
+            'sapUser' => SapBotSetting::get('sapUser', 'RPA_USER'),
+            'sapLang' => SapBotSetting::get('sapLang', 'EN'),
+            'exportFolder' => SapBotSetting::get('exportFolder', ''),
+            'filePrefix' => SapBotSetting::get('filePrefix', 'realisasi_'),
+            'reportTx' => SapBotSetting::get('reportTx', 'ZFM001'),
+            'fmArea' => SapBotSetting::get('fmArea', '1000'),
+            'fundCenterLow' => SapBotSetting::get('fundCenterLow', 'A022020000'),
+            'fundCenterHigh' => SapBotSetting::get('fundCenterHigh', 'A022020005'),
+            'logoutAfter' => SapBotSetting::get('logoutAfter', '1'),
         ];
 
-        $sapConfigService->ensureExists();
-        $parsedIni = $sapConfigService->read();
-
-        $settings['sapUser'] = $parsedIni['SAP']['sapUser'] ?? '';
-        $settings['exportFolder'] = $parsedIni['Export']['exportFolder'] ?? '';
-
-        // Ambil scheduleTime dari INI
-        $scheduleTime = $parsedIni['SAP']['ScheduleTime'] ?? '';
+        // Ambil scheduleTime
+        $scheduleTime = SapBotSetting::get('scheduleTime', '18:00');
         $hour = '';
         $minute = '';
         if ($scheduleTime) {
@@ -31,84 +33,39 @@ class SapSettingsController extends Controller
             if (count($parts) == 2) {
                 $h = (int)$parts[0];
                 $m = $parts[1];
-                if ($h == 0) $h = 24; // 00:xx -> 24:xx (tampilan)
+                if ($h == 0) $h = 24;
                 $hour = $h;
                 $minute = $m;
             }
         }
-
-        return view('admin.sap-settings.index', compact('settings', 'hour', 'minute'));
-    }
-
-    public function browseFolder(Request $request)
-    {
-        $path = $request->get('path', 'C:\\');
         
-        // Mode khusus untuk melihat daftar Drive (Windows)
-        if ($path === 'DRIVES') {
-            $directories = [];
-            foreach (range('A', 'Z') as $letter) {
-                $drive = $letter . ':\\';
-                if (is_dir($drive)) {
-                    $directories[] = [
-                        'name' => 'Local Disk (' . $letter . ':)',
-                        'path' => $drive
-                    ];
-                }
-            }
-            return response()->json([
-                'current_path' => 'My Computer',
-                'parent_path' => null, // Paling atas
-                'directories' => $directories
-            ]);
-        }
+        $botStatus = [
+            'botLastSeen' => SapBotSetting::get('botLastSeen', ''),
+            'botStatus' => SapBotSetting::get('botStatus', ''),
+            'botMachineName' => SapBotSetting::get('botMachineName', ''),
+            'botVersion' => SapBotSetting::get('botVersion', ''),
+            'lastRunAt' => SapBotSetting::get('lastRunAt', ''),
+            'lastRunStatus' => SapBotSetting::get('lastRunStatus', ''),
+        ];
 
-        // Hapus backslash di akhir agar seragam, kecuali untuk root drive seperti C:\
-        $path = rtrim($path, '\\/');
-        if (preg_match('/^[A-Z]:$/i', $path)) {
-            $path .= '\\';
-        }
+        $latestImport = \App\Models\ImportLog::where('status', 'success')->latest('created_at')->first();
 
-        if (!is_dir($path)) {
-            return response()->json(['error' => 'Path tidak valid', 'path' => $path], 404);
-        }
-
-        $directories = [];
-        try {
-            $items = scandir($path);
-            foreach ($items as $item) {
-                if ($item == '.' || $item == '..') continue;
-                $fullPath = rtrim($path, '\\/') . DIRECTORY_SEPARATOR . $item;
-                if (is_dir($fullPath)) {
-                    $directories[] = [
-                        'name' => $item,
-                        'path' => $fullPath
-                    ];
-                }
-            }
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Permission denied', 'path' => $path], 403);
-        }
-
-        // Parent path logic
-        $parentPath = dirname($path);
-        // Jika sudah di root drive (misal C:\), parent-nya adalah 'DRIVES'
-        if ($parentPath === $path || $path === '') {
-            $parentPath = 'DRIVES';
-        }
-
-        return response()->json([
-            'current_path' => $path,
-            'parent_path' => $parentPath,
-            'directories' => $directories
-        ]);
+        return view('admin.sap-settings.index', compact('settings', 'hour', 'minute', 'botStatus', 'latestImport'));
     }
 
-    public function update(Request $request, SapConfigService $sapConfigService)
+    public function update(Request $request)
     {
         $request->validate([
-            'sapUser' => 'required|string',
+            'sapSystem' => 'sometimes|required|string',
+            'sapClient' => 'sometimes|required|string',
+            'sapUser' => 'sometimes|required|string',
+            'sapLang' => 'sometimes|required|string',
             'exportFolder' => 'required|string',
+            'filePrefix' => 'sometimes|required|string',
+            'reportTx' => 'sometimes|required|string',
+            'fmArea' => 'sometimes|required|string',
+            'fundCenterLow' => 'sometimes|required|string',
+            'fundCenterHigh' => 'sometimes|required|string',
             'hour' => 'required|numeric|min:1|max:24',
             'minute' => 'required|numeric|min:0|max:59',
         ], [
@@ -117,25 +74,26 @@ class SapSettingsController extends Controller
             'exportFolder.required' => 'Folder Export tidak boleh kosong.'
         ]);
 
-        $folder = $request->exportFolder;
+        if ($request->has('sapSystem')) SapBotSetting::put('sapSystem', $request->sapSystem);
+        if ($request->has('sapClient')) SapBotSetting::put('sapClient', $request->sapClient);
+        if ($request->has('sapUser')) SapBotSetting::put('sapUser', $request->sapUser);
+        if ($request->has('sapLang')) SapBotSetting::put('sapLang', $request->sapLang);
+        SapBotSetting::put('exportFolder', $request->exportFolder);
+        if ($request->has('filePrefix')) SapBotSetting::put('filePrefix', $request->filePrefix);
+        if ($request->has('reportTx')) SapBotSetting::put('reportTx', $request->reportTx);
+        if ($request->has('fmArea')) SapBotSetting::put('fmArea', $request->fmArea);
+        if ($request->has('fundCenterLow')) SapBotSetting::put('fundCenterLow', $request->fundCenterLow);
+        if ($request->has('fundCenterHigh')) SapBotSetting::put('fundCenterHigh', $request->fundCenterHigh);
         
-        // HAPUS VALIDASI is_dir dan is_writable di sisi PHP
-        // Karena jika di-hosting di server yang berbeda (atau dibatasi open_basedir), 
-        // PHP tidak bisa mengecek folder lokal PC Windows.
-        // Validasi ketersediaan folder akan diserahkan sepenuhnya ke script VBS/Bot saat berjalan.
-
-        if (!$sapConfigService->isWritable()) {
-            return back()->with('error', 'Folder / File konfigurasi SAP tidak bisa ditulis (Permission Denied): ' . dirname($sapConfigService->getPath()) . '. Pastikan folder memiliki izin tulis.');
+        if ($request->has('logoutAfter')) {
+            SapBotSetting::put('logoutAfter', '1');
+        } elseif ($request->has('update_all')) {
+            // If the form submitted everything but logoutAfter is absent, it means it's unchecked
+            SapBotSetting::put('logoutAfter', '0');
         }
 
-        $sapConfigService->ensureExists();
-        $parsedIni = $sapConfigService->read();
-
-        // Update values
-        $parsedIni['SAP']['sapUser'] = $request->sapUser;
-        
         if ($request->filled('sapPass')) {
-            $parsedIni['SAP']['sapPass'] = $request->sapPass;
+            SapBotSetting::put('sapPass', $request->sapPass, true);
         }
 
         // Format hour dan minute
@@ -144,31 +102,8 @@ class SapSettingsController extends Controller
         if ($h == 24) $h = 0;
         $scheduleTime = sprintf('%02d:%02d', $h, $m);
 
-        $parsedIni['SAP']['ScheduleTime'] = $scheduleTime;
-        $parsedIni['Export']['exportFolder'] = $folder;
-
-        // Write INI back
-        $sapConfigService->write($parsedIni);
+        SapBotSetting::put('scheduleTime', $scheduleTime);
 
         return back()->with('success', 'Pengaturan Bot SAP berhasil disimpan. Jadwal eksekusi ditetapkan pukul ' . $scheduleTime . ' WIB.');
-    }
-
-    /**
-     * API Endpoint untuk menjembatani server cPanel dengan PC Lokal Windows
-     * Endpoint ini akan memuntahkan config terbaru dalam format JSON
-     */
-    public function getConfigApi(SapConfigService $sapConfigService)
-    {
-        $settings = $sapConfigService->readConfig();
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'sapUser' => $settings['sapUser'] ?? '',
-                'sapPass' => $settings['sapPass'] ?? '',
-                'exportFolder' => $settings['exportFolder'] ?? '',
-                'hour' => $settings['hour'] ?? '',
-                'minute' => $settings['minute'] ?? '',
-            ]
-        ]);
     }
 }

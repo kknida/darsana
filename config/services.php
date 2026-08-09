@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'sap' => [
+        'import_token' => env('SAP_IMPORT_TOKEN'),
+    ],
+
 ];

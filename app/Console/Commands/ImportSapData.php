@@ -28,9 +28,9 @@ class ImportSapData extends Command
      */
     public function handle()
     {
-        $importPath = config('sap.import_path');
-        $archivePath = config('sap.archive_path');
-        $failedPath = config('sap.failed_path');
+        $importPath = storage_path('app/sap/incoming');
+        $archivePath = storage_path('app/sap/archive');
+        $failedPath = storage_path('app/sap/failed');
 
         if (!File::isDirectory($importPath)) {
             File::makeDirectory($importPath, 0755, true);
