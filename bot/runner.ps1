@@ -1,9 +1,13 @@
-﻿param([switch]$MockExport)
+param([switch]$MockExport)
 $ErrorActionPreference = "Stop"
 
 $BotVersion = "1.0.0"
 $MachineName = $env:COMPUTERNAME
 $ScriptDir = $PSScriptRoot
+$versionFile = Join-Path $ScriptDir "BOT_VERSION"
+if (Test-Path $versionFile) {
+    $BotVersion = (Get-Content $versionFile).Trim()
+}
 $ConfigFile = Join-Path $ScriptDir "bot.env"
 $IniFile = Join-Path $ScriptDir "runtime_config.ini"
 $LockFile = Join-Path $ScriptDir "bot.lock"
