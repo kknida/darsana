@@ -45,21 +45,16 @@ Write-Host "Mendaftarkan Scheduled Task..." -ForegroundColor Cyan
 $taskName = "DarsanaSapBot"
 $runnerBat = Join-Path $PSScriptRoot "runner.bat"
 
-$existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-if ($existingTask) {
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-    Write-Host "Task lama berhasil dihapus." -ForegroundColor Yellow
+$cmd = 'schtasks /Create /TN "{0}" /TR "\"{1}\"" /SC MINUTE /MO 1 /IT /RU "{2}" /F' -f $taskName, $runnerBat, $env:USERNAME
+cmd.exe /c $cmd | Out-Null
+
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Pendaftaran task berhasil." -ForegroundColor Green
+    schtasks /Query /TN "DarsanaSapBot" /V /FO LIST
+} else {
+    Write-Host "Pendaftaran task gagal. Pastikan skrip dijalankan sebagai Administrator." -ForegroundColor Red
+    exit 1
 }
-
-$action = New-ScheduledTaskAction -Execute $runnerBat -WorkingDirectory $PSScriptRoot
-$trigger = New-ScheduledTaskTrigger -AtLogOn
-$trigger.RepetitionInterval = (New-TimeSpan -Minutes 1)
-$trigger.RepetitionDuration = [TimeSpan]::MaxValue
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Days 0) -MultipleInstances IgnoreNew
-
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings | Out-Null
-Write-Host "Scheduled Task '$taskName' berhasil didaftarkan." -ForegroundColor Green
 
 # 5. Di akhir, cetak daftar langkah manual yang TIDAK bisa dilakukan skrip
 Write-Host "`nLangkah manual yang perlu Anda lakukan:" -ForegroundColor Cyan
@@ -67,4 +62,5 @@ Write-Host "1. Isi Folder Export di halaman Pengaturan Bot SAP dashboard."
 Write-Host "2. Jalankan runner.ps1 sekali secara manual, lalu pada popup SAP GUI Security centang 'Remember My Decision' lalu tekan 'Allow'."
 Write-Host "3. Pastikan sapgui/user_scripting = TRUE di sisi server SAP."
 Write-Host "4. Atur Power Options ke Never dan screensaver None."
+Write-Host "5. Aplikasi SAP Logon harus SELALU TERBUKA di layar daftar koneksi, tanpa login. Bot yang akan login sendiri."
 Write-Host "`nPemasangan selesai." -ForegroundColor Green

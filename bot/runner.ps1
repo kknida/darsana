@@ -24,6 +24,56 @@ function Write-Log {
     "$Stamp - $Message" | Out-File -FilePath $LogFile -Append
 }
 
+function Read-FileBytesShared {
+    param([string] $Path)
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, 'Open', 'Read', 'ReadWrite')
+        $length = [int] $stream.Length
+        $buffer = New-Object byte[] $length
+        $offset = 0
+        while ($offset -lt $length) {
+            $read = $stream.Read($buffer, $offset, $length - $offset)
+            if ($read -le 0) { break }
+            $offset = $offset + $read
+        }
+        return $buffer
+    }
+    finally {
+        if ($stream -ne $null) {
+            $stream.Close()
+            $stream.Dispose()
+        }
+    }
+}
+
+function Wait-FileReady {
+    param(
+        [string] $Path,
+        [int] $TimeoutSeconds = 30
+    )
+    $startTime = Get-Date
+    Write-Log "Memeriksa kesiapan berkas..."
+    while (((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
+        try {
+            $stream = [System.IO.File]::Open($Path, 'Open', 'Read', 'ReadWrite')
+            $length1 = $stream.Length
+            $stream.Close()
+            $stream.Dispose()
+            
+            Start-Sleep -Seconds 1
+            $length2 = (Get-Item $Path).Length
+            
+            if ($length1 -eq $length2 -and $length1 -gt 0) {
+                return $true
+            }
+        } catch {
+            Start-Sleep -Seconds 1
+        }
+    }
+    return $false
+}
+
 if ($MockExport) {
     Write-Log "MODE MOCK AKTIF: Melewati pemanggilan SAP asli."
 }
@@ -188,9 +238,15 @@ fundCenterHigh=$($Settings.fundCenterHigh)
             if ($CsvPath -and (Test-Path $CsvPath)) {
                 Write-Log "File ditemukan di $CsvPath. Memulai unggahan."
                 
+                if (-not (Wait-FileReady -Path $CsvPath -TimeoutSeconds 30)) {
+                    Write-Log "ERROR: Berkas $CsvPath tidak dapat dibaca atau ukurannya tidak stabil setelah 30 detik."
+                    Send-Heartbeat -Status "error" -Message "Berkas CSV tidak dapat dibaca setelah 30 detik."
+                    exit 1
+                }
+                
                 # Multipart upload
                 $Boundary = [System.Guid]::NewGuid().ToString()
-                $FileBytes = [System.IO.File]::ReadAllBytes($CsvPath)
+                $FileBytes = Read-FileBytesShared -Path $CsvPath
                 $FileName = Split-Path $CsvPath -Leaf
                 
                 $BodyLines = (
