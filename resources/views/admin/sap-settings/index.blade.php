@@ -80,13 +80,13 @@
                             @php
                                 $diff24h = $latestImport->created_at->diffInHours(now()) >= 24;
                             @endphp
-                            Data terakhir: <strong class="text-slate-700">{{ $latestImport->created_at->format('d M Y H:i') }}</strong> 
+                            Data terakhir: <strong class="text-slate-700">{{ $latestImport->created_at->timezone('Asia/Jakarta')->format('d M Y H:i') }} WIB</strong> 
                             ({{ $latestImport->rows_imported ?? 0 }} baris)
                             @if($diff24h)
                                 <span class="text-red-600 font-bold ml-2">⚠️ Bot belum mengirim data lebih dari 24 jam!</span>
                             @endif
                         @else
-                            Belum ada data diimpor.
+                            Belum pernah
                         @endif
                     </p>
                 </div>
