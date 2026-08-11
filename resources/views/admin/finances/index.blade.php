@@ -122,7 +122,7 @@ new #[Layout('layouts.admin')] class extends Component {
                 <tbody class="divide-y divide-slate-50 text-sm">
                     @forelse ($importLogs as $log)
                         <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="p-4 text-slate-600 font-medium text-center">{{ $log->created_at->format('d M Y H:i') }}</td>
+                            <td class="p-4 text-slate-600 font-medium text-center">{{ $log->created_at->timezone('Asia/Jakarta')->format('d M Y H:i') }}</td>
                             <td class="p-4 font-bold text-slate-800">{{ $log->file_name }}</td>
                             <td class="p-4 text-slate-600 font-medium text-center">{{ $log->report_date }}</td>
                             <td class="p-4 text-slate-600 font-medium capitalize text-center">
