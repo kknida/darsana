@@ -508,6 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
                 {{-- Tombol utama: Refresh Data SAP (Primary) --}}
+                @auth
                 <form action="{{ route('finance.refresh') }}" method="POST" @submit.prevent="
                     refreshing = true;
                     fetch($el.action, {
@@ -534,6 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span x-show="refreshing" x-cloak>Menarik data dari SAP...</span>
                     </button>
                 </form>
+                @endauth
             </div>
         </div>
 
