@@ -397,7 +397,7 @@ document.addEventListener('alpine:init', () => {
     $catId = str_replace([' ','-'], '_', Str::slug($catName));
 @endphp
     Alpine.data('sum_cat_{{ $catId }}', () => ({
-        isOpen: true,
+        isOpen: false,
         rawData: {!! json_encode($catItems) !!},
         sortCol: '',
         sortDir: 'desc',

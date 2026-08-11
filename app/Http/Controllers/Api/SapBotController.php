@@ -17,28 +17,67 @@ class SapBotController extends Controller
         $scheduleTime = SapBotSetting::get('scheduleTime', '18:00');
         $lastRunAt = SapBotSetting::get('lastRunAt', '');
         
+        $lastAttemptAt = SapBotSetting::get('lastAttemptAt', '');
+        $attemptsToday = (int) SapBotSetting::get('attemptsToday', '0');
+        $attemptsDate = SapBotSetting::get('attemptsDate', '');
+
+        $now = Carbon::now('Asia/Jakarta');
+        $today = $now->format('Y-m-d');
+
+        if ($attemptsDate !== $today) {
+            $attemptsToday = 0;
+            $attemptsDate = $today;
+        }
+
         $shouldRunNow = false;
+        $triggerReason = "";
+
         if ($refreshRequested) {
             $shouldRunNow = true;
+            $triggerReason = "manual";
         } else {
-            $now = Carbon::now('Asia/Jakarta');
             $scheduled = Carbon::createFromFormat('H:i', $scheduleTime, 'Asia/Jakarta');
-            
             $isPastSchedule = $now->greaterThanOrEqualTo($scheduled);
             $hasRunToday = false;
             
             if ($lastRunAt) {
                 try {
                     $lastRunDate = Carbon::parse($lastRunAt)->timezone('Asia/Jakarta')->format('Y-m-d');
-                    if ($lastRunDate === $now->format('Y-m-d')) {
+                    if ($lastRunDate === $today) {
                         $hasRunToday = true;
                     }
                 } catch (\Exception $e) {}
             }
             
-            if ($isPastSchedule && !$hasRunToday) {
-                $shouldRunNow = true;
+            $isAttemptAllowed = true;
+            if ($lastAttemptAt) {
+                try {
+                    $lastAttemptTime = Carbon::parse($lastAttemptAt)->timezone('Asia/Jakarta');
+                    if ($now->lessThan($lastAttemptTime->copy()->addMinutes(20))) {
+                        $isAttemptAllowed = false;
+                    }
+                } catch (\Exception $e) {}
             }
+
+            if ($isPastSchedule && !$hasRunToday && $attemptsToday < 3 && $isAttemptAllowed) {
+                $shouldRunNow = true;
+                $triggerReason = "schedule, percobaan ke-" . ($attemptsToday + 1);
+            }
+        }
+
+        if ($shouldRunNow) {
+            $lastAttemptAt = $now->toIso8601String();
+            SapBotSetting::put('lastAttemptAt', $lastAttemptAt);
+            
+            if ($refreshRequested) {
+                SapBotSetting::put('refreshRequested', '0');
+            } else {
+                $attemptsToday++;
+                SapBotSetting::put('attemptsToday', (string) $attemptsToday);
+                SapBotSetting::put('attemptsDate', $attemptsDate);
+            }
+            
+            Log::info("SAP trigger: " . $triggerReason);
         }
 
         return response()->json([
@@ -56,7 +95,9 @@ class SapBotController extends Controller
             'scheduleTime' => $scheduleTime,
             'refreshRequested' => $refreshRequested,
             'shouldRunNow' => $shouldRunNow,
-            'serverTime' => Carbon::now('Asia/Jakarta')->toIso8601String(),
+            'lastAttemptAt' => $lastAttemptAt,
+            'attemptsToday' => (string) $attemptsToday,
+            'serverTime' => $now->toIso8601String(),
         ]);
     }
 

@@ -38,7 +38,7 @@ class SapImportService
 
         // Determine status
         $status = 'success';
-        if ($stats['failed_count'] > 0) {
+        if ($stats['failed_count'] > 0 || $stats['rows_imported'] === 0) {
             $status = $stats['rows_imported'] > 0 ? 'partial' : 'failed';
         }
 
@@ -56,13 +56,19 @@ class SapImportService
             'status' => $status,
         ]);
 
-        // Assosiate import_id with the new rows
-        DB::table('budget_realisasi')
-            ->where('report_date', $reportDate)
-            ->whereNull('import_id')
-            ->update(['import_id' => $importLog->id]);
+        if ($stats['rows_imported'] > 0) {
+            // Assosiate import_id with the new rows
+            DB::table('budget_realisasi')
+                ->where('report_date', $reportDate)
+                ->whereNull('import_id')
+                ->update(['import_id' => $importLog->id]);
+        }
 
         Log::info("Imported SAP data from {$originalFileName} - Rows: {$stats['rows_imported']}, Failed: {$stats['failed_count']}, Duration: {$stats['duration_seconds']}s");
+
+        if ($stats['rows_imported'] === 0) {
+            throw new \Exception("Jumlah baris sah nol, impor dibatalkan.");
+        }
 
         return $stats;
     }
@@ -269,8 +275,8 @@ class SapImportService
         }
 
         if (!empty($recordsToInsert)) {
-            DB::transaction(function () use ($reportDate, $recordsToInsert) {
-                DB::table('budget_realisasi')->where('report_date', $reportDate)->delete();
+            DB::transaction(function () use ($recordsToInsert) {
+                DB::table('budget_realisasi')->delete();
                 foreach (array_chunk($recordsToInsert, 500) as $chunk) {
                     DB::table('budget_realisasi')->insert($chunk);
                 }
