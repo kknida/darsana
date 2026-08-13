@@ -229,6 +229,10 @@ fundCenterHigh=$($Settings.fundCenterHigh)
             Stop-Process -Id $WatcherProc.Id -Force -ErrorAction SilentlyContinue
         }
         
+        # Tutup Excel atau Notepad yang mungkin otomatis terbuka oleh SAP setelah export
+        Stop-Process -Name "excel" -Force -ErrorAction SilentlyContinue
+        Stop-Process -Name "notepad" -Force -ErrorAction SilentlyContinue
+        
         if ($ExitCode -eq 0 -or $ExitCode -eq 2) {
             $CsvPath = $null
             if ($VbsOut -match "EXPORTED_FILE=(.*)") {
