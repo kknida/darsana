@@ -26,8 +26,9 @@ $sumConsume = $sumConsume ?? 0;
 $sumAvail   = $sumAvail ?? 0;
 $allItems   = []; // kumpulan semua item lintas cabang
 
-foreach ($financeData as $b) {
+foreach ($financeData as $branchName => $b) {
     foreach ($b['items'] ?? [] as $itm) {
+        $itm['branch_name'] = $itm['branch_name'] ?? $branchName;
         $allItems[] = $itm;
     }
 }
@@ -743,7 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <tr class="hover:bg-slate-50/80 transition-colors">
                                         <td class="py-3 px-4">
                                             <p class="text-base font-extrabold text-slate-800" x-text="r.name"></p>
-                                            <p class="text-sm font-medium text-slate-500 mt-0.5" x-text="r.code"></p>
+                                            <p class="text-sm font-medium text-slate-500 mt-0.5" x-text="r.code + (r.branch_name ? ' • ' + r.branch_name : '')"></p>
                                         </td>
                                         <td class="py-3.5 px-4 text-right text-[15px] font-bold text-slate-700" x-text="fmt(r.rkap)"></td>
                                         <td class="py-3.5 px-4 text-right text-[15px] font-bold text-slate-700" x-text="fmt(r.release)"></td>
