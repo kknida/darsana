@@ -42,7 +42,7 @@ class SapImportLatest extends Command
         $fileName = $newFile->getFilename();
 
         try {
-            $stats = $importService->import($filePath, $fileName, 'schedule');
+            $stats = $importService->import($filePath, $fileName, 'new_atlazbot');
             
             if (!$this->safeCopyFile($filePath, $archiveDir . '/' . $fileName)) {
                 Log::warning("sap:import-latest gagal menyalin file ke archive: {$fileName}");

@@ -60,7 +60,7 @@ class ImportSapData extends Command
             $this->info("Processing file: {$fileName}");
 
             try {
-                $stats = $importService->import($filePath, $fileName, 'schedule');
+                $stats = $importService->import($filePath, $fileName, 'new_atlazbot');
 
                 // Move file to archive after successful import
                 $targetArchive = $archivePath . '/' . $fileName;
