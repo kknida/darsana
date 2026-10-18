@@ -127,7 +127,7 @@ class Stream2ImportService
             $upload = TerminalUpload::create([
                 'file_name'   => $fileName,
                 'uploaded_by' => $source,
-                'status'      => 'processing',
+                'status'      => 'pending',
                 'total_rows'  => 0,
             ]);
 
@@ -197,7 +197,7 @@ class Stream2ImportService
             $upload->update([
                 'tanggal_awal'  => !empty($dates) ? min($dates) : null,
                 'tanggal_akhir' => !empty($dates) ? max($dates) : null,
-                'status'        => 'success',
+                'status'        => 'processed',
                 'total_rows'    => $inserted,
             ]);
 
@@ -236,7 +236,7 @@ class Stream2ImportService
             $upload = EnrouteUpload::create([
                 'file_name'   => $fileName,
                 'uploaded_by' => $source,
-                'status'      => 'processing',
+                'status'      => 'pending',
                 'total_rows'  => 0,
             ]);
 
@@ -308,7 +308,7 @@ class Stream2ImportService
             $upload->update([
                 'tanggal_awal'  => !empty($dates) ? min($dates) : null,
                 'tanggal_akhir' => !empty($dates) ? max($dates) : null,
-                'status'        => 'success',
+                'status'        => 'processed',
                 'total_rows'    => $inserted,
             ]);
 
@@ -352,7 +352,7 @@ class Stream2ImportService
             $upload = TrafficUpload::create([
                 'file_name'   => $fileName,
                 'uploaded_by' => $source,
-                'status'      => 'processing',
+                'status'      => 'pending',
                 'total_rows'  => 0,
             ]);
 
@@ -415,7 +415,7 @@ class Stream2ImportService
             $upload->update([
                 'tanggal_awal'  => !empty($dates) ? min($dates) : null,
                 'tanggal_akhir' => !empty($dates) ? max($dates) : null,
-                'status'        => 'success',
+                'status'        => 'processed',
                 'total_rows'    => $inserted,
             ]);
 
@@ -514,3 +514,4 @@ class Stream2ImportService
         return 'IDR';
     }
 }
+
