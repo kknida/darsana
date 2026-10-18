@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use App\Services\SapImportService;
+use App\Services\Stream2ImportService;
 
 class ImportSapData extends Command
 {
@@ -21,12 +22,12 @@ class ImportSapData extends Command
      *
      * @var string
      */
-    protected $description = 'Import SAP budget data from CSV files';
+    protected $description = 'Import SAP budget data and Stream2 Excel reports (Terminal, Enroute, Movement) from incoming folder';
 
     /**
      * Execute the console command.
      */
-    public function handle(SapImportService $importService)
+    public function handle(SapImportService $sapImportService, Stream2ImportService $stream2ImportService)
     {
         $importPath = storage_path('app/sap/incoming');
         $archivePath = storage_path('app/sap/archive');
@@ -57,25 +58,38 @@ class ImportSapData extends Command
             $processedCount++;
             $filePath = $file->getRealPath();
             $fileName = $file->getFilename();
+            $lowerName = strtolower($fileName);
             $this->info("Processing file: {$fileName}");
 
             try {
-                $stats = $importService->import($filePath, $fileName, 'new_atlazbot');
+                // Deteksi apakah file dari Stream2 (Terminal, Enroute, Movement) atau SAP Realisasi Anggaran (ZFM001)
+                $isStream2 = str_contains($lowerName, 'terminal') ||
+                             str_contains($lowerName, 'enroute')  ||
+                             str_contains($lowerName, 'movement') ||
+                             str_contains($lowerName, 'stream');
 
-                // Move file to archive after successful import
+                if ($isStream2) {
+                    $result = $stream2ImportService->import($filePath, $fileName, 'new_atlazbot');
+                    $rowCount = $result['rows_imported'] ?? 0;
+                    $this->info("Stream2 Import [{$result['type']}]: {$result['message']}");
+                } else {
+                    $stats = $sapImportService->import($filePath, $fileName, 'new_atlazbot');
+                    $rowCount = $stats['rows_imported'] ?? 0;
+                    $this->info("SAP ZFM001 Import: {$rowCount} rows imported.");
+                }
+
+                // Pindahkan file ke archive setelah sukses
                 $targetArchive = $archivePath . '/' . $fileName;
                 if (File::exists($targetArchive)) {
                     File::delete($targetArchive);
                 }
                 File::move($filePath, $targetArchive);
 
-                $rowCount = $stats['rows_imported'] ?? 0;
-                $this->info("Successfully processed {$fileName}. Rows: {$rowCount}");
                 $totalRows += $rowCount;
                 $successFiles++;
 
             } catch (\Exception $e) {
-                Log::error("Failed to parse SAP file {$fileName}: " . $e->getMessage());
+                Log::error("Failed to parse incoming file {$fileName}: " . $e->getMessage());
                 $this->error("Failed to process {$fileName}: " . $e->getMessage());
 
                 // Move file to failed
