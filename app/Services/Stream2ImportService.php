@@ -108,19 +108,16 @@ class Stream2ImportService
     private function importTerminal(array $rows, array $headers, string $fileName, string $source): array
     {
         $col = $this->mapColumns($headers, [
-            'aircraft_id'     => ['aircraft id', 'aircraft', 'acid'],
-            'adep'            => ['adep', 'from', 'asal'],
-            'ades'            => ['ades', 'to', 'tujuan'],
-            'dof'             => ['dof', 'tanggal', 'date'],
-            'registrasi'      => ['registrasi', 'reg', 'a-reg'],
-            'type'            => ['type', 'tipe', 'a-type'],
-            'terminal'        => ['terminal'],
-            'waktu_kedatangan'=> ['ata', 'waktu kedatangan', 'arrival time'],
-            'waktu_keberangkatan' => ['atd', 'waktu keberangkatan', 'departure time'],
-            'gate'            => ['gate'],
-            'parking_stand'   => ['parking stand', 'parking', 'stand'],
-            'biaya_terminal'  => ['terminal charge', 'biaya terminal', 'charge'],
-            'flight_type'     => ['flight type', 'jenis penerbangan', 'type']
+            'aircraft_id'        => ['aircraft id', 'acid', 'aircraft'],
+            'adep'               => ['adep', 'from', 'asal'],
+            'ades'               => ['ades', 'to', 'tujuan'],
+            'dof'                => ['dof', 'tanggal', 'date'],
+            'registrasi'         => ['registrasi', 'reg', 'a-reg'],
+            'type'               => ['type', 'tipe', 'a-type'],
+            'ata'                => ['ata', 'waktu kedatangan', 'arrival time'],
+            'mtow'               => ['mtow'],
+            'terminal_charge'    => ['terminal charge', 'biaya terminal', 'charge'],
+            'flight_type'        => ['flight type', 'jenis penerbangan']
         ]);
 
         return DB::transaction(function () use ($rows, $col, $fileName, $source) {
@@ -138,13 +135,13 @@ class Stream2ImportService
 
             foreach ($rows as $row) {
                 $acid = trim((string)($row[$col['aircraft_id']] ?? ''));
-                if (empty($acid) || strtolower($acid) === 'total') continue;
+                if (empty($acid) || strtolower($acid) === 'total' || str_contains(strtolower($acid), 'total')) continue;
 
                 $dofRaw = $row[$col['dof']] ?? null;
                 $date = $this->parseDate($dofRaw) ?? now()->toDateString();
                 $dates[] = $date;
 
-                $rawCharge = $row[$col['biaya_terminal']] ?? 0;
+                $rawCharge = $row[$col['terminal_charge']] ?? 0;
                 $charge = $this->parseMoney($rawCharge);
                 $currency = $this->detectCurrency($rawCharge);
 
@@ -168,11 +165,11 @@ class Stream2ImportService
                     'tanggal'             => $date,
                     'registrasi'          => trim((string)($row[$col['registrasi']] ?? '')),
                     'type'                => trim((string)($row[$col['type']] ?? '')),
-                    'terminal'            => trim((string)($row[$col['terminal']] ?? '1')),
-                    'waktu_kedatangan'    => $this->parseTime($row[$col['waktu_kedatangan']] ?? null),
-                    'waktu_keberangkatan' => $this->parseTime($row[$col['waktu_keberangkatan']] ?? null),
-                    'gate'                => trim((string)($row[$col['gate']] ?? '')),
-                    'parking_stand'       => trim((string)($row[$col['parking_stand']] ?? '')),
+                    'terminal'            => '1',
+                    'waktu_kedatangan'    => $this->parseTime($row[$col['ata']] ?? null),
+                    'waktu_keberangkatan' => null,
+                    'gate'                => null,
+                    'parking_stand'       => null,
                     'biaya_terminal'      => $charge,
                     'currency'            => $currency,
                     'biaya_terminal_idr'  => $chargeIdr,
