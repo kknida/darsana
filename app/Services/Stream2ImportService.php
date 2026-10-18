@@ -67,37 +67,49 @@ class Stream2ImportService
     {
         $lowerName = strtolower($fileName);
 
-        // Scan header baris 0-10
-        for ($i = 0; $i < min(10, count($rows)); $i++) {
+        // Scan header baris 0-10 untuk baris kolom data (bukan baris judul dokumen)
+        for ($i = 0; $i < min(15, count($rows)); $i++) {
             $rowStrings = array_map(fn($v) => strtolower(trim((string)$v)), $rows[$i]);
             $rowText = implode(' ', $rowStrings);
 
-            // Deteksi Terminal Charge: ada 'aircraft id', 'adep', 'terminal charge', 'parking stand'
-            if (str_contains($rowText, 'terminal charge') || (str_contains($rowText, 'mtow') && str_contains($rowText, 'ata'))) {
-                $headerRowIndex = $i;
-                $headers = $rowStrings;
-                return 'terminal';
-            }
-
-            // Deteksi Enroute Charge: ada 'point in', 'point out', 'faktor jarak', 'route charge'
-            if (str_contains($rowText, 'point in') || str_contains($rowText, 'route charge') || str_contains($rowText, 'faktor jarak')) {
+            // Deteksi Enroute Charge: harus memiliki 'point in' atau ('aircraft id'/'acid' dan 'route charge')
+            if (str_contains($rowText, 'point in') || (str_contains($rowText, 'aircraft id') && str_contains($rowText, 'route charge'))) {
                 $headerRowIndex = $i;
                 $headers = $rowStrings;
                 return 'enroute';
             }
 
-            // Deteksi Movement / Traffic: ada 'pushback', 'taxi', 'ruid dep', 'eobt'
-            if (str_contains($rowText, 'pushback') || str_contains($rowText, 'taxi') || str_contains($rowText, 'eobt')) {
+            // Deteksi Terminal Charge: harus memiliki 'mtow' atau ('aircraft id'/'acid' dan 'terminal charge')
+            if (str_contains($rowText, 'mtow') || (str_contains($rowText, 'aircraft id') && str_contains($rowText, 'terminal charge'))) {
+                $headerRowIndex = $i;
+                $headers = $rowStrings;
+                return 'terminal';
+            }
+
+            // Deteksi Movement / Traffic: ada 'pushback', 'taxi', 'ruid dep', 'riu dep', 'dep/arr/local'
+            if (str_contains($rowText, 'pushback') || str_contains($rowText, 'taxi') || str_contains($rowText, 'riu dep') || str_contains($rowText, 'ruid dep')) {
                 $headerRowIndex = $i;
                 $headers = $rowStrings;
                 return 'movement';
             }
         }
 
-        // Fallback dari nama file
-        if (str_contains($lowerName, 'terminal')) return 'terminal';
-        if (str_contains($lowerName, 'enroute') || str_contains($lowerName, 'enc')) return 'enroute';
-        if (str_contains($lowerName, 'movement') || str_contains($lowerName, 'mov')) return 'movement';
+        // Fallback dari nama file jika tidak terdeteksi dari isi
+        if (str_contains($lowerName, 'terminal')) {
+            $headerRowIndex = 1;
+            $headers = array_map(fn($v) => strtolower(trim((string)$v)), $rows[1] ?? []);
+            return 'terminal';
+        }
+        if (str_contains($lowerName, 'enroute') || str_contains($lowerName, 'enc')) {
+            $headerRowIndex = 1;
+            $headers = array_map(fn($v) => strtolower(trim((string)$v)), $rows[1] ?? []);
+            return 'enroute';
+        }
+        if (str_contains($lowerName, 'movement') || str_contains($lowerName, 'mov')) {
+            $headerRowIndex = 6;
+            $headers = array_map(fn($v) => strtolower(trim((string)$v)), $rows[6] ?? []);
+            return 'movement';
+        }
 
         return null;
     }
@@ -226,7 +238,7 @@ class Stream2ImportService
             'faktor_berat'  => ['faktor berat', 'weight factor'],
             'route_unit'    => ['route unit', 'unit'],
             'route_charge'  => ['route charge', 'enroute charge', 'charge'],
-            'flight_type'   => ['flight type', 'jenis penerbangan', 'type']
+            'flight_type'   => ['flight type', 'jenis penerbangan']
         ]);
 
         return DB::transaction(function () use ($rows, $col, $fileName, $source) {
@@ -281,7 +293,7 @@ class Stream2ImportService
                     'faktor_jarak'       => $this->parseDecimal($row[$col['faktor_jarak']] ?? null),
                     'faktor_berat'       => (int)($this->parseDecimal($row[$col['faktor_berat']] ?? null)),
                     'route_unit'         => $this->parseDecimal($row[$col['route_unit']] ?? null),
-                    'route_charge'       => $charge,
+                    'enroute_charge'     => $charge,
                     'currency'           => $currency,
                     'exchange_rate'      => $rate,
                     'enroute_charge_idr' => $chargeIdr,
@@ -432,12 +444,27 @@ class Stream2ImportService
         $mapping = [];
         foreach ($fieldKeywords as $field => $keywords) {
             $mapping[$field] = -1;
+
+            // 1. Coba exact match terlebih dahulu
             foreach ($headers as $idx => $headerText) {
                 $clean = strtolower(trim((string)$headerText));
                 foreach ($keywords as $kw) {
-                    if ($clean === $kw || str_contains($clean, $kw)) {
+                    if ($clean === $kw) {
                         $mapping[$field] = $idx;
                         break 2;
+                    }
+                }
+            }
+
+            // 2. Jika tidak ada exact match, coba partial contains
+            if ($mapping[$field] === -1) {
+                foreach ($headers as $idx => $headerText) {
+                    $clean = strtolower(trim((string)$headerText));
+                    foreach ($keywords as $kw) {
+                        if (str_contains($clean, $kw)) {
+                            $mapping[$field] = $idx;
+                            break 2;
+                        }
                     }
                 }
             }
