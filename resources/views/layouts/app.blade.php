@@ -18,12 +18,21 @@
         @endif
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+        <script>
+            // Segera pasang class tv-mode-active sebelum DOM render jika user sebelumnya dalam Mode TV
+            if (localStorage.getItem('darsana_tv_mode') === 'true') {
+                document.documentElement.classList.add('tv-mode-active');
+                window.addEventListener('DOMContentLoaded', function() {
+                    document.body.classList.add('tv-mode-active');
+                });
+            }
+        </script>
         @livewireStyles
     </head>
     <body class="bg-slate-50 font-sans antialiased text-slate-900">
-        <div class="min-h-screen w-full">
-            <!-- Navigation dengan padding -->
-            <div class="px-4 sm:px-6 lg:px-8 py-6">
+        <div class="min-h-screen w-full" id="app-root-container">
+            <!-- Navigation dengan padding (disembunyikan saat Mode TV Fullscreen aktif) -->
+            <div id="main-navigation-bar" class="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 transition-all duration-300">
                 @include('layouts.navigation')
             </div>
 

@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\FlightTrafficInfoController;
 use Livewire\Volt\Volt; 
 
 /*
@@ -16,7 +17,11 @@ use Livewire\Volt\Volt;
 //     return view('traffic'); 
 // })->name('traffic');
 
-Route::get('/', [DashboardController::class, 'index'])->name('traffic'); 
+// Route::get('/', [DashboardController::class, 'index'])->name('traffic'); 
+Route::get('/', [FlightTrafficInfoController::class, 'index'])->name('flight-traffic-info'); 
+Route::get('/flight-traffic-info', [FlightTrafficInfoController::class, 'index'])->name('flight-traffic-info');
+Route::get('/flight-traffic-info/bulanan', [FlightTrafficInfoController::class, 'monthly'])->name('flight-traffic-info.monthly');
+Route::get('/flight-traffic-info/harian', [FlightTrafficInfoController::class, 'daily'])->name('flight-traffic-info.daily'); 
 
 Route::get('/finance', [FinanceController::class, 'index'])->name('finance');
 Route::post('/finance/import', [FinanceController::class, 'import'])->name('finance.import');

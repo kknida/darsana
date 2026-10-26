@@ -34,10 +34,18 @@
     </div>
 
     <div class="flex items-center bg-white border rounded-xl p-1 shadow-sm">
-        <a href="{{ route('traffic') }}" 
+        <!-- <a href="{{ route('flight-traffic-info') }}" 
            class="{{ $baseClasses }} {{ request()->routeIs('traffic') ? $activeClasses : $inactiveClasses }}">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+            Traffic
+        </a> -->
+
+        <a href="{{ route('flight-traffic-info') }}" 
+           class="{{ $baseClasses }} {{ request()->routeIs('flight-traffic-info*') ? $activeClasses : $inactiveClasses }}">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transform -rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
             Traffic
         </a>
